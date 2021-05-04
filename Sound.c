@@ -1060,7 +1060,7 @@ void Sound_Init(void){
 };
 
 void Timer2A_Handler(void){
-  TIMER2_ICR_R = 0x00000001;  // acknowledge
+  TIMER2_ICR_R = 0x00000001;  // acknowledge interupt
   Sound_Play();
 }
 
@@ -1076,26 +1076,28 @@ void Timer2A_Handler(void){
 // special cases: as you wish to implement
 void Sound_Start(const uint8_t *pt, uint32_t count){
 // write this
-	wave = pt;
-  tempindex = 0;
-  soundIndex = count;
+	wave = pt; //set the sound track 
+  tempindex = 0; //set the starting index
+  soundIndex = count; //set the ending array index
 };
 
 void Sound_Play(void){
-  if(soundIndex){
-    DAC_Out(wave[tempindex]>>4);
-    tempindex = tempindex + 1;
-    soundIndex = soundIndex - 1;
+  if(soundIndex){ //only play sound when we need it
+		
+    DAC_Out(wave[tempindex]>>4); //convert sound from 8 bit to 4 bits
+    tempindex = tempindex + 1; //increase playing index (where in the sound we are)
+    soundIndex = soundIndex - 1; //decrease counter (when the sound ends)
+		
   }else{
 		DAC_Out(0);
   }
 }
 
 void Sound_Shoot(void){
-  Sound_Start(shoot,4080);
+  Sound_Start(shoot,4080); //load shoot track
 }
 
 void Sound_Hit(void){
-  Sound_Start(invaderkilled,3377);
+  Sound_Start(invaderkilled,3377); //load kill track
 }
 

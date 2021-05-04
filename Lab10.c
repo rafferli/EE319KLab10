@@ -138,6 +138,7 @@ void SysTick_Handler(void){ // every 100 ms
 	//PF2 ^= 0x04;
 	//PF3 ^= 0x08;
 	
+	//pausing the game //checks if SW2 is pressed
 	static uint32_t lastdownpause = 1;
 	uint32_t downpause = GPIO_PORTF_DATA_R & 0x01;
 	
@@ -146,36 +147,45 @@ void SysTick_Handler(void){ // every 100 ms
 		gamePaused ^= 1;
 		Clock_Delay1ms(500);
 	}
+	////////
 	
 	if(gameStarted == 1 && gamePaused != 1){
-		Move(); 
 		
+		Move(); //update positioning
+		
+		//checks if SW1 is pressed
 		static uint32_t lastdown = 1;
 		uint32_t down = GPIO_PORTF_DATA_R & 0x10;
-		if(down == 0 && lastdown != 0){
-			PF1 ^= 0x02;
+		
+		if(down == 0 && lastdown != 0){ //if switch is pressed
+			PF1 ^= 0x02; //toggle light for debug
 			
-			Sound_Shoot();
+			Sound_Shoot(); //play shooting sound
+			
 			int notAssigned = 1;
 			int assignIndex = 0;
-			while(notAssigned){
+			while(notAssigned){//loop thru missile array to find ready missile
 				
 				if(Missiles[assignIndex].life == 0)
 				{
-					Missiles[assignIndex].X = Player1.X+7	;
-					Missiles[assignIndex].Y = Player1.Y;
-					Missiles[assignIndex].VY = 2;
-					Missiles[assignIndex].image = Laser0;
-					Missiles[assignIndex].life = 1;
-					notAssigned = 0;
+
+					Missiles[assignIndex].X = Player1.X+7	; //set missile to spawn where ship is
+					Missiles[assignIndex].Y = Player1.Y; 
+					
+					Missiles[assignIndex].VY = 2; //set missile velocity
+					Missiles[assignIndex].image = Laser0; //set missile image
+					Missiles[assignIndex].life = 1; //set missile to being alive
+					notAssigned = 0; //break out of the while loop because we spawned in a missile
 				}else{
+					//if the missile we checked wasnt alive, go to the next one
 					assignIndex++;
+					// if index hits 10, go back to 0 to keep searching
 					assignIndex = assignIndex%10;
 				}
 			}
 		}
 		
-		lastdown = down;
+		lastdown = down; //reset button press
 	}
 }
 
@@ -197,6 +207,7 @@ void Profile_Init(void){
   GPIO_PORTF_DIR_R |=  0x0E;   // output on PF3,2,1 
 	GPIO_PORTF_PUR_R |= 0x11;
   GPIO_PORTF_DEN_R |=  0x1F;   // enable digital I/O on PF3,2,1
+	
 	
   //GPIO_PORTB_DIR_R |=  0x30;   // output on PB4 PB5
   //GPIO_PORTB_DEN_R |=  0x30;   // enable on PB4 PB5  
@@ -221,6 +232,7 @@ int main(void){
 	EnableInterrupts();
 	
 	while(1){
+	//draws the logo
   SSD1306_DrawBMP(2, 62, SpaceInvadersMarquee, 0, SSD1306_WHITE);
   SSD1306_OutBuffer();
 	SSD1306_SetCursor(0,0);
@@ -228,7 +240,7 @@ int main(void){
 	
 	int notReadyToPlay = 1;
 	
-	//wait for player to start game
+	//wait for player to start game ny pressing SW1
 	while((GPIO_PORTF_DATA_R&0x10) == 0){
 	}
 	Clock_Delay1ms(5);
@@ -245,23 +257,24 @@ int main(void){
   SSD1306_OutString("Presione SW2");
 	SSD1306_SetCursor(0,4);
   SSD1306_OutString("para espa\xA4ol");
+	
 	Clock_Delay1ms(1000);
 	while(notReadyToPlay){
-		static uint32_t lastdownMain = 1;
 		uint32_t downSW1 = GPIO_PORTF_DATA_R & 0x10;
 		uint32_t downSW2 = GPIO_PORTF_DATA_R & 0x01;
 		
-		if(downSW1 == 0 && lastdownMain != 0){
-			PF2 ^= 0x04;
+		//checks language selection
+		if(downSW1 == 0){
+			//english selected
 			english = 1;
 			notReadyToPlay = 0;
 			Clock_Delay1ms(50);
 		}
 		
-		if(downSW2 == 0 && lastdownMain != 0){
+		if(downSW2 == 0){
+			//spanish selected
 			english = 0;
 			notReadyToPlay = 0;
-			PF3 ^= 0x08;
 			Clock_Delay1ms(5);
 		}
 		
@@ -275,7 +288,8 @@ int main(void){
 		if(score == 3) {Level2Handler();}
 		if(score == 9) {Level3Handler();}
 		if(score == 27) {gameOver = 1;}
-		Draw();
+		
+		Draw(); //refresh the screen
 		
 		if(gameOver){
 			notReadyToPlay = 1;
@@ -348,51 +362,60 @@ int main(void){
 }
 
 void Draw(){
-	
+		
 		SSD1306_ClearBuffer();
-	
+		
+		//draw all missiles that are alive	
 		for(int i = 0; i < 10; i++){
 			if(Missiles[i].life == 1){
 			SSD1306_DrawBMP(Missiles[i].X, Missiles[i].Y, Missiles[i].image, 0, SSD1306_INVERSE);
 			}
 		}
 		
+		//draw all the enemies that are alive
 		for(int i = 0; i < 10; i++){
 			if(Enemies[i].life == 1){
 			SSD1306_DrawBMP(Enemies[i].X, Enemies[i].Y, Enemies[i].image, 0, SSD1306_INVERSE);
 			}
 		}
 		
+		//draw the player
 		SSD1306_DrawBMP(Player1.X, Player1.Y, Player1.image, 0, SSD1306_INVERSE);
+		
+		//print to the screen
 		SSD1306_OutBuffer();
 }
 
 void Move(){
 	
-		Player1.X =	ADC_In()/35;
+		Player1.X =	ADC_In()/35; //getting reading from slide pot, divide by 35 so the range is 0-117
 		if(Player1.X > 110){
-		Player1.X = 111;
+		Player1.X = 111; //makes sure player does not run off of the map
 		}
 		
 		//missile movement
 		for(int i = 0; i < 10; i++){
-			Missiles[i].Y -= Missiles[i].VY;
-			if(Missiles[i].Y <= 0){Missiles[i].life = 0;}
+			Missiles[i].Y -= Missiles[i].VY; //move missile up by 1 pixel
+			
+			if(Missiles[i].Y <= 0){
+				Missiles[i].life = 0; //if the missile hits the top of screen, kill the missile
+			} 
 			
 			//check to see if we hit enemy
 			for(int j = 0; j < 10; j++){
-				int Ydifference = Missiles[i].Y - Enemies[j].Y;
-				if(Ydifference < 0){Ydifference*=-1;}
+				int Ydifference = Missiles[i].Y - Enemies[j].Y; //gets the Y coord difference between missile and enemy
+				if(Ydifference < 0){Ydifference*=-1;} //if Y is negative, find the abs value
 				
-				if(Ydifference < 10 && Missiles[i].life == 1 && Enemies[j].life == 1){
+				if(Ydifference < 10 && Missiles[i].life == 1 && Enemies[j].life == 1){ //if Y is in range we check X next
 					
-					int Xdifference = Missiles[i].X - Enemies[j].X;
-						if(Xdifference < 0){Xdifference*=-1;}
-						if( Xdifference < 10){
-								Sound_Hit();
-								Enemies[j].life = 0;
-								Missiles[i].life = 0;
-								score += Enemies[j].points;
+					int Xdifference = Missiles[i].X - Enemies[j].X; //gets the X coord difference between missile and enemy
+						if(Xdifference < 0){Xdifference*=-1;} //if X is negative, find the abs value
+						if( Xdifference < 10){ //if X difference is less than 10 pixels, we know the missle hit the enemy
+								
+								Sound_Hit(); //play kill sound
+								Enemies[j].life = 0; //kill enemy
+								Missiles[i].life = 0; //kill missile
+								score += Enemies[j].points; //update points
 						}
 				}
 			}	
@@ -401,13 +424,14 @@ void Move(){
 		//enemy movement
 		for(int i = 0; i < 10; i++){
 			if(Enemies[i].VYCounter == 0){
+				//since enemy moves too fast, we add a delay
 				Enemies[i].Y += Enemies[i].VY;
 				Enemies[i].VYCounter = Enemies[i].VYReload;
 			}else{
 				Enemies[i].VYCounter--;
 			}
 			
-			if(Enemies[i].Y >= 63 && Enemies[i].life != 0){Enemies[i].life = 0; gameOver = 1;}
+			if(Enemies[i].Y >= 63 && Enemies[i].life != 0){Enemies[i].life = 0; gameOver = 1;} //if enemy hits bottom of screen, end game
 		}
 		
 }

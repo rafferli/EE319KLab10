@@ -24,11 +24,13 @@ void DAC_Init(void){
 	//turn on clock b 00010
 	SYSCTL_RCGCGPIO_R |= 0x02;
 	
+	//wait for stable
 	__asm__{
 		NOP
 		NOP
 	}
 	
+	//turn on pins
 	GPIO_PORTB_DIR_R |= 0x3F;
 	GPIO_PORTB_DEN_R |= 0x3F;
 	
