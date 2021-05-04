@@ -96,15 +96,12 @@ struct Missile {
 
 
 typedef struct PlayerSprite Player_t;
-
 typedef struct EnemySprite Enemy_t;
-
 typedef struct Missile Missile_t;
 
 Player_t Player1 = {PlayerShip0, 0, 63, 1};
 
 Enemy_t Enemies[10];
-
 Missile_t Missiles[10];
 
 void Draw(void);
@@ -116,6 +113,11 @@ void Level3Handler(void);
 
 char score = 0;
 int gameOver = 0;
+int gamePaused = 0;
+int english = 1;
+int gameStarted = 0;
+int lv1Pos = 10;
+
 // **************SysTick_Init*********************
 // Initialize Systick periodic interrupts
 // Input: interrupt period
@@ -135,33 +137,46 @@ void SysTick_Handler(void){ // every 100 ms
   //PF1 ^= 0x02;     // Heartbeat
 	//PF2 ^= 0x04;
 	//PF3 ^= 0x08;
-	Move();
 	
-	static uint32_t lastdown = 1;
-	uint32_t down = GPIO_PORTF_DATA_R & 0x10;
-	if(down == 0 && lastdown != 0){
-	PF1 ^= 0x02;
+	static uint32_t lastdownpause = 1;
+	uint32_t downpause = GPIO_PORTF_DATA_R & 0x01;
 	
-	int notAssigned = 1;
-	int assignIndex = 0;
-		while(notAssigned){
+	if(downpause == 0 && lastdownpause != 0 && gameStarted == 1)
+	{
+		gamePaused ^= 1;
+		Clock_Delay1ms(500);
+	}
+	
+	if(gameStarted == 1 && gamePaused != 1){
+		Move(); 
+		
+		static uint32_t lastdown = 1;
+		uint32_t down = GPIO_PORTF_DATA_R & 0x10;
+		if(down == 0 && lastdown != 0){
+			PF1 ^= 0x02;
 			
-			if(Missiles[assignIndex].life == 0)
-			{
-				Missiles[assignIndex].X = Player1.X+7	;
-				Missiles[assignIndex].Y = Player1.Y;
-				Missiles[assignIndex].VY = 2;
-				Missiles[assignIndex].image = Laser0;
-				Missiles[assignIndex].life = 1;
-				notAssigned = 0;
-			}else{
-				assignIndex++;
-				assignIndex = assignIndex%10;
+			Sound_Shoot();
+			int notAssigned = 1;
+			int assignIndex = 0;
+			while(notAssigned){
+				
+				if(Missiles[assignIndex].life == 0)
+				{
+					Missiles[assignIndex].X = Player1.X+7	;
+					Missiles[assignIndex].Y = Player1.Y;
+					Missiles[assignIndex].VY = 2;
+					Missiles[assignIndex].image = Laser0;
+					Missiles[assignIndex].life = 1;
+					notAssigned = 0;
+				}else{
+					assignIndex++;
+					assignIndex = assignIndex%10;
+				}
 			}
-			
 		}
-	}	
-	lastdown = down;
+		
+		lastdown = down;
+	}
 }
 
 // TExaSdisplay logic analyzer shows 7 bits 0,PB5,PB4,PF3,PF2,PF1,0 
@@ -183,16 +198,13 @@ void Profile_Init(void){
 	GPIO_PORTF_PUR_R |= 0x11;
   GPIO_PORTF_DEN_R |=  0x1F;   // enable digital I/O on PF3,2,1
 	
-		
-		
-  GPIO_PORTB_DIR_R |=  0x30;   // output on PB4 PB5
-  GPIO_PORTB_DEN_R |=  0x30;   // enable on PB4 PB5  
+  //GPIO_PORTB_DIR_R |=  0x30;   // output on PB4 PB5
+  //GPIO_PORTB_DEN_R |=  0x30;   // enable on PB4 PB5  
 }
 //********************************************************************************
  
 void Delay100ms(uint32_t count); // time delay in 0.1 seconds
 int main(void){
-	
   DisableInterrupts();
   // pick one of the following three lines, all three set to 80 MHz
   //PLL_Init();                   // 1) call to have no TExaS debugging
@@ -205,37 +217,134 @@ int main(void){
   SSD1306_ClearBuffer();
 	ADC_Init(SAC_32);
 	SysTick_Init(2666666);
+	Sound_Init();
 	EnableInterrupts();
 	
-	//void SSD1306_DrawBMP(uint8_t xpos, uint8_t ypos, const uint8_t *ptr, uint8_t threshold, uint16_t color);
-	
 	while(1){
+  SSD1306_DrawBMP(2, 62, SpaceInvadersMarquee, 0, SSD1306_WHITE);
+  SSD1306_OutBuffer();
+	SSD1306_SetCursor(0,0);
+  SSD1306_OutString("Press SW1 to Play");
 	
-	if(score < 3) {Level1Handler();}
-	if(score == 3) {Level2Handler();}
-	if(score == 6) {Level3Handler();}
-	if(score == 11) {gameOver = 1;}
-	Draw();
+	int notReadyToPlay = 1;
+	
+	//wait for player to start game
+	while((GPIO_PORTF_DATA_R&0x10) == 0){
+	}
+	Clock_Delay1ms(5);
+  while((GPIO_PORTF_DATA_R&0x10) == 0x10){
+	}
+	Clock_Delay1ms(5);
+	
+	//language selection
+	notReadyToPlay = 1;
+	SSD1306_OutClear(); // set screen to black 	
+	SSD1306_SetCursor(0,0);
+  SSD1306_OutString("Press SW1 for English");
+	SSD1306_SetCursor(0,3);
+  SSD1306_OutString("Presione SW2");
+	SSD1306_SetCursor(0,4);
+  SSD1306_OutString("para espa\xA4ol");
+	Clock_Delay1ms(1000);
+	while(notReadyToPlay){
+		static uint32_t lastdownMain = 1;
+		uint32_t downSW1 = GPIO_PORTF_DATA_R & 0x10;
+		uint32_t downSW2 = GPIO_PORTF_DATA_R & 0x01;
 		
+		if(downSW1 == 0 && lastdownMain != 0){
+			PF2 ^= 0x04;
+			english = 1;
+			notReadyToPlay = 0;
+			Clock_Delay1ms(50);
+		}
 		
+		if(downSW2 == 0 && lastdownMain != 0){
+			english = 0;
+			notReadyToPlay = 0;
+			PF3 ^= 0x08;
+			Clock_Delay1ms(5);
+		}
 		
-	if(gameOver){
-		SSD1306_OutClear(); // set screen to black 	
-		SSD1306_SetCursor(0,0);
-    SSD1306_OutString("game over");
-		SSD1306_SetCursor(0,1);
-    SSD1306_OutString("Score:");
-		SSD1306_SetCursor(0,2);
-    LCD_OutDec(score);
-		while(1){
-		     
+	}
+	
+	Clock_Delay1ms(1000);
+	gameStarted = 1;
+	while(gameStarted){
+	
+		if(score < 3) {Level1Handler();}
+		if(score == 3) {Level2Handler();}
+		if(score == 9) {Level3Handler();}
+		if(score == 27) {gameOver = 1;}
+		Draw();
+		
+		if(gameOver){
+			notReadyToPlay = 1;
+			gameStarted = 0;
+			if(english){
+			SSD1306_OutClear(); // set screen to black 	
+			SSD1306_SetCursor(0,0);
+			
+			if(score == 27){
+			SSD1306_OutString("You won!");
+			}else{
+			SSD1306_OutString("Game over");
+			}
+				
+				
+			SSD1306_SetCursor(0,1);
+			SSD1306_OutString("Score:");
+			SSD1306_SetCursor(0,2);
+			LCD_OutDec(score);
+			SSD1306_SetCursor(0,3);
+			SSD1306_OutString("Press SW1 to");
+			SSD1306_SetCursor(0,4);
+			SSD1306_OutString("play again");
+			
+			}else{
+			
+			SSD1306_OutClear(); // set screen to black 	
+			SSD1306_SetCursor(0,0);
+				
+			if(score == 27){
+			SSD1306_OutString("\xADT\xA3 ganas!");
+			}else{
+			SSD1306_OutString("Juego terminado");
+			}
+			
+			SSD1306_SetCursor(0,1);
+			SSD1306_OutString("Puntaje:");
+			SSD1306_SetCursor(0,2);
+			LCD_OutDec(score);
+			SSD1306_SetCursor(0,3);
+			SSD1306_OutString("Presione SW1 para");
+			SSD1306_SetCursor(0,4);
+			SSD1306_OutString("jugar de nuevo");
+			
+			}
+			while(notReadyToPlay){
+				static uint32_t lastdownMain = 1;
+				uint32_t downMain = GPIO_PORTF_DATA_R & 0x10;
+					if(downMain == 0 && lastdownMain != 0){
+					
+					//reset game state
+					notReadyToPlay = 0;
+					score = 0;
+					gameOver = 0;
+					SSD1306_OutClear();
+						
+					for(int i = 0; i < 10; i++){
+						Enemies[i].life = 0;
+						Missiles[i].life = 0;
+					}
 
+					lv1Pos = 10;
+					Clock_Delay1ms(100);
+					}
+				}
+			}
+	
 		}
 	}
-	
-	}
-
-	
 }
 
 void Draw(){
@@ -280,10 +389,10 @@ void Move(){
 					int Xdifference = Missiles[i].X - Enemies[j].X;
 						if(Xdifference < 0){Xdifference*=-1;}
 						if( Xdifference < 10){
-						
+								Sound_Hit();
 								Enemies[j].life = 0;
 								Missiles[i].life = 0;
-								score++;
+								score += Enemies[j].points;
 						}
 				}
 			}	
@@ -303,16 +412,20 @@ void Move(){
 		
 }
 
+
+
 void Level1Handler(){
 	
 	if(Enemies[0].life == 0){
-				Enemies[0].X = 50;
+				Enemies[0].X = lv1Pos;
 				Enemies[0].Y = 8;
 				Enemies[0].VY = 1;
 				Enemies[0].VYReload = 5;
 				Enemies[0].VYCounter = 5;
 				Enemies[0].image = Alien10pointA;
 				Enemies[0].life = 1;
+				Enemies[0].points = 1;
+				lv1Pos += 30;
 	}
 
 }
@@ -325,8 +438,9 @@ void Level2Handler(){
 				Enemies[0].VY = 1;
 				Enemies[0].VYReload = 5;
 				Enemies[0].VYCounter = 5;
-				Enemies[0].image = Alien10pointA;
+				Enemies[0].image = Alien20pointA;
 				Enemies[0].life = 1;
+				Enemies[0].points = 2;
 	}
 	
 	if(Enemies[1].life == 0){
@@ -335,8 +449,9 @@ void Level2Handler(){
 				Enemies[1].VY = 1;
 				Enemies[1].VYReload = 5;
 				Enemies[1].VYCounter = 5;
-				Enemies[1].image = Alien10pointA;
+				Enemies[1].image = Alien20pointA;
 				Enemies[1].life = 1;
+				Enemies[1].points = 2;
 	}
 	
 	if(Enemies[2].life == 0){
@@ -345,8 +460,9 @@ void Level2Handler(){
 				Enemies[2].VY = 1;
 				Enemies[2].VYReload = 5;
 				Enemies[2].VYCounter = 5;		
-				Enemies[2].image = Alien10pointA;
+				Enemies[2].image = Alien20pointA;
 				Enemies[2].life = 1;
+				Enemies[2].points = 2;
 	}
 	
 }
@@ -359,8 +475,9 @@ void Level3Handler(){
 				Enemies[0].VY = 1;
 				Enemies[0].VYReload = 5;
 				Enemies[0].VYCounter = 5;
-				Enemies[0].image = Alien10pointA;
+				Enemies[0].image = Alien30pointA;
 				Enemies[0].life = 1;
+				Enemies[0].points = 3;
 	}
 	
 	if(Enemies[1].life == 0){
@@ -369,8 +486,9 @@ void Level3Handler(){
 				Enemies[1].VY = 1;
 				Enemies[1].VYReload = 5;
 				Enemies[1].VYCounter = 5;
-				Enemies[1].image = Alien10pointA;
+				Enemies[1].image = Alien30pointA;
 				Enemies[1].life = 1;
+				Enemies[1].points = 3;
 	}
 	
 	if(Enemies[2].life == 0){
@@ -379,8 +497,9 @@ void Level3Handler(){
 				Enemies[2].VY = 1;
 				Enemies[2].VYReload = 5;
 				Enemies[2].VYCounter = 5;		
-				Enemies[2].image = Alien10pointA;
+				Enemies[2].image = Alien30pointA;
 				Enemies[2].life = 1;
+				Enemies[2].points = 3;
 	}
 	if(Enemies[3].life == 0){
 				Enemies[3].X = 60;
@@ -388,17 +507,29 @@ void Level3Handler(){
 				Enemies[3].VY = 1;
 				Enemies[3].VYReload = 5;
 				Enemies[3].VYCounter = 5;		
-				Enemies[3].image = Alien10pointA;
+				Enemies[3].image = Alien30pointA;
 				Enemies[3].life = 1;
+				Enemies[3].points = 3;
 	}
 	if(Enemies[4].life == 0){
-				Enemies[4].X = 100;
+				Enemies[4].X = 75;
 				Enemies[4].Y = 8;
 				Enemies[4].VY = 1;
 				Enemies[4].VYReload = 5;
 				Enemies[4].VYCounter = 5;		
-				Enemies[4].image = Alien10pointA;
+				Enemies[4].image = Alien30pointA;
 				Enemies[4].life = 1;
+				Enemies[4].points = 3;
+	}
+	if(Enemies[5].life == 0){
+				Enemies[5].X = 100;
+				Enemies[5].Y = 8;
+				Enemies[5].VY = 1;
+				Enemies[5].VYReload = 5;
+				Enemies[5].VYCounter = 5;		
+				Enemies[5].image = Alien30pointA;
+				Enemies[5].life = 1;
+				Enemies[5].points = 3;
 	}
 			
 	

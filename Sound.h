@@ -7,6 +7,8 @@
 #ifndef _Sound_h
 #define _Sound_h
 #include <stdint.h>
+#include "DAC.h"
+#include "../inc/tm4c123gh6pm.h"
 
 // Header files contain the prototypes for public functions 
 // this file explains what the module does
@@ -20,9 +22,10 @@ void Sound_Init(void);
 //        count is the length of the array
 // Output: none
 // special cases: as you wish to implement
-void Sound_Play(const uint8_t *pt, uint32_t count);
-
-
+void Sound_Start(const uint8_t *pt, uint32_t count);
+void Sound_Play(void);
+void Sound_Shoot(void);
+void Sound_Hit(void);
 #endif
 
 

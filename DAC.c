@@ -1,10 +1,10 @@
-// dac.c
+// DAC.c
 // This software configures DAC output
 // Lab 6 requires a minimum of 4 bits for the DAC, but you could have 5 or 6 bits
 // Runs on TM4C123
 // Program written by: put your names here
 // Date Created: 3/6/17 
-// Last Modified: 1/14/21 
+// Last Modified: 1/17/21 
 // Lab number: 6
 // Hardware connections
 // TO STUDENTS "REMOVE THIS LINE AND SPECIFY YOUR HARDWARE********

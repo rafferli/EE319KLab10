@@ -8,6 +8,7 @@
 .\lab10.o: ADC.h
 .\lab10.o: Images.h
 .\lab10.o: Sound.h
+.\lab10.o: DAC.h
 .\lab10.o: Timer0.h
 .\lab10.o: Timer1.h
 .\lab10.o: TExaS.h
